@@ -2,35 +2,40 @@
 
 ## Current status
 
-- **Phase:** Week 4 — Journal & 369 **COMPLETE**
-- **Next task:** W5-T1 Goals + tasks API and screens
+- **Phase:** Week 5 — Goals **COMPLETE**; Vision boards **PARTIAL** (CRUD + items; signed upload URLs pending)
+- **Next task:** W6 reminders / notifications; Supabase Storage signed uploads for vision images
 - **Last updated:** 2026-10-28
 
 ## Summary
 
-Weeks 1–4 complete. MongoDB + Mongoose, Supabase JWT auth, dashboard/affirmations/AI, journal, 369 practice, timezone-aware streaks.
+Weeks 1–5 (goals) complete. Vision board API/UI live with remote image paths and free-tier limit (3). Full app is **not** production-complete — see `qa/FINAL_QA_REPORT.md`.
 
 ## Completed
 
-### Weeks 1–3
+### Weeks 1–4
 See module task files under `tasks/`.
 
-### Week 4
+### Week 5
 | Date | Task | Notes |
 | --- | --- | --- |
-| 2026-10-28 | W4-T1 | Journal CRUD API + Journal tab (create/list) |
-| 2026-10-28 | W4-T2 | 369 today/record API + practice screen |
-| 2026-10-28 | W4-T3 | Streak service in user timezone; `/progress` + dashboard |
+| 2026-10-28 | W5-T1 | Goals CRUD + tasks + progress; Goals screen wired |
+| 2026-10-28 | W5-T2 | Vision boards CRUD + items + free limit; Vision tab wired (uploads pending) |
+
+### QA session
+| Date | Notes |
+| --- | --- |
+| 2026-10-28 | Full audit started; removed fake Google/Phone login; password reset; journal delete; affirmation share |
 
 ## Verification
 
-- `npm test --prefix backend` → 30/30 pass
-- `npm test --prefix mobile` → includes Week 4 module checks
+- `npm test --prefix backend` → includes Week 5 goals/vision suite
+- `npm test --prefix mobile` → module presence checks
 
 ## In progress
 
-- None
+- W5-T2 signed Supabase Storage uploads
+- Weeks 6+ reminders, RevenueCat, AI coach, meditation playback
 
 ## Blockers
 
-- None for Week 5 start
+- Google OAuth, RevenueCat, FCM, OpenAI production keys, Android E2E device/emulator automation

@@ -44,6 +44,23 @@ Error:
 | GET | `/practice/369/today` | Auth required — morning/afternoon/evening progress |
 | POST | `/practice/369` | Auth required — `{ period, count, content? }` |
 | GET | `/progress` | Auth required — streak in user timezone |
+| GET | `/goals` | Auth required — list goals (`?status=active\|completed\|archived\|all`) |
+| POST | `/goals` | Auth required — create goal (+ optional tasks) |
+| GET | `/goals/:id` | Auth required — get owned goal |
+| PATCH | `/goals/:id` | Auth required — update owned goal |
+| DELETE | `/goals/:id` | Auth required — delete owned goal |
+| POST | `/goals/:id/tasks` | Auth required — add task |
+| PATCH | `/goals/:id/tasks/:taskId` | Auth required — update/complete task |
+| DELETE | `/goals/:id/tasks/:taskId` | Auth required — delete task |
+| GET | `/vision-boards` | Auth required — list boards |
+| POST | `/vision-boards` | Auth required — create board (free limit 3) |
+| GET | `/vision-boards/:id` | Auth required — get owned board |
+| PATCH | `/vision-boards/:id` | Auth required — update board |
+| DELETE | `/vision-boards/:id` | Auth required — delete board |
+| POST | `/vision-boards/:id/items` | Auth required — add image item (`image_path`) |
+| PATCH | `/vision-boards/:id/items/:itemId` | Auth required — update item |
+| DELETE | `/vision-boards/:id/items/:itemId` | Auth required — delete item |
+| POST | `/vision-boards/:id/items/reorder` | Auth required — `{ ordered_item_ids }` |
 
 Send `Authorization: Bearer <supabase_access_token>`.
 

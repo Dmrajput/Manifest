@@ -2,22 +2,13 @@ const { Goal, JournalEntry, VisionBoard } = require("../models");
 const affirmationService = require("./affirmationService");
 const aiQuotaService = require("./aiQuotaService");
 const streakService = require("./streakService");
+const { computeGoalProgress } = require("./goalService");
 const { getDateKeyInTimezone, dateKeyToUtcDate, shiftDateKey } = require("../utils/timezone");
 
 function greetingForHour(hour) {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
   return "Good Evening";
-}
-
-async function computeGoalProgress(goal) {
-  const tasks = goal.tasks || [];
-  if (tasks.length === 0) return 0;
-  const totalWeight = tasks.reduce((sum, task) => sum + (task.weight || 1), 0);
-  const doneWeight = tasks
-    .filter((task) => task.completed_at)
-    .reduce((sum, task) => sum + (task.weight || 1), 0);
-  return Math.round((doneWeight / totalWeight) * 100);
 }
 
 async function getDashboard(user) {
@@ -45,7 +36,7 @@ async function getDashboard(user) {
     activeGoal = {
       id: activeGoalDoc._id.toString(),
       title: activeGoalDoc.title,
-      progress: await computeGoalProgress(activeGoalDoc),
+      progress: computeGoalProgress(activeGoalDoc),
       target_date: activeGoalDoc.target_date || null,
     };
   }

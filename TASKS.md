@@ -45,8 +45,8 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 
 | ID | Task | Status | Module file |
 | --- | --- | --- | --- |
-| W5-T1 | Goals + tasks API and screens | [ ] | `tasks/W5-goals-vision.md` |
-| W5-T2 | Vision boards + signed upload URLs | [ ] | `tasks/W5-goals-vision.md` |
+| W5-T1 | Goals + tasks API and screens | [x] | `tasks/W5-goals-vision.md` |
+| W5-T2 | Vision boards + signed upload URLs | [~] | `tasks/W5-goals-vision.md` |
 
 ## Week 6 — Reminders & polish
 

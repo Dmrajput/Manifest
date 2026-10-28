@@ -12,6 +12,8 @@ const aiRouter = require("./routes/ai");
 const journalRouter = require("./routes/journal");
 const practiceRouter = require("./routes/practice");
 const progressRouter = require("./routes/progress");
+const goalsRouter = require("./routes/goals");
+const visionRouter = require("./routes/vision");
 
 const app = express();
 
@@ -55,6 +57,8 @@ app.use("/api/v1/ai", aiRouter);
 app.use("/api/v1/journal", journalRouter);
 app.use("/api/v1/practice", practiceRouter);
 app.use("/api/v1/progress", progressRouter);
+app.use("/api/v1/goals", goalsRouter);
+app.use("/api/v1/vision-boards", visionRouter);
 
 app.use(notFound);
 app.use(errorHandler);

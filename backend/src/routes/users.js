@@ -6,5 +6,6 @@ const router = Router();
 
 router.get("/me", requireAuth, usersController.getMe);
 router.patch("/me", requireAuth, usersController.patchMe);
+router.delete("/me", requireAuth, usersController.deleteMe);
 
 module.exports = router;

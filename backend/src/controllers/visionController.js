@@ -99,8 +99,21 @@ async function addItem(req, res, next) {
       });
     }
     const user = await userService.getOrCreateFromAuth(req.auth);
-    const board = await visionService.addItem(user._id, req.params.id, parsed.data);
+    const board = await visionService.addItem(user._id, req.params.id, parsed.data, {
+      authProviderId: req.auth.id,
+    });
     return success(res, { data: { board }, message: "Item added", status: 201 });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function createUploadPlan(req, res, next) {
+  try {
+    const contentType = req.body?.content_type || "image/jpeg";
+    const storageService = require("../services/storageService");
+    const plan = await storageService.createVisionUploadPlan(req.auth.id, { contentType });
+    return success(res, { data: { upload: plan }, message: "Upload plan created" });
   } catch (error) {
     return next(error);
   }
@@ -118,7 +131,9 @@ async function updateItem(req, res, next) {
       });
     }
     const user = await userService.getOrCreateFromAuth(req.auth);
-    const board = await visionService.updateItem(user._id, req.params.id, req.params.itemId, parsed.data);
+    const board = await visionService.updateItem(user._id, req.params.id, req.params.itemId, parsed.data, {
+      authProviderId: req.auth.id,
+    });
     return success(res, { data: { board }, message: "Item updated" });
   } catch (error) {
     return next(error);
@@ -164,4 +179,5 @@ module.exports = {
   updateItem,
   deleteItem,
   reorderItems,
+  createUploadPlan,
 };

@@ -12,6 +12,11 @@ function serializeUser(user) {
       categories: user.preferences?.categories || [],
       language: user.preferences?.language || "en",
       theme: user.preferences?.theme || "system",
+      notifications: {
+        morning: user.preferences?.notifications?.morning !== false,
+        evening: user.preferences?.notifications?.evening !== false,
+        practice369: user.preferences?.notifications?.practice369 !== false,
+      },
     },
     onboarding_completed: Boolean(user.onboarding_completed),
     created_at: user.created_at,
@@ -74,6 +79,17 @@ async function updateMe(userId, updates) {
     }
     if (updates.preferences.theme !== undefined) {
       setOps["preferences.theme"] = updates.preferences.theme;
+    }
+    if (updates.preferences.notifications) {
+      if (updates.preferences.notifications.morning !== undefined) {
+        setOps["preferences.notifications.morning"] = updates.preferences.notifications.morning;
+      }
+      if (updates.preferences.notifications.evening !== undefined) {
+        setOps["preferences.notifications.evening"] = updates.preferences.notifications.evening;
+      }
+      if (updates.preferences.notifications.practice369 !== undefined) {
+        setOps["preferences.notifications.practice369"] = updates.preferences.notifications.practice369;
+      }
     }
   }
 

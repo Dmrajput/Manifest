@@ -61,6 +61,15 @@ Error:
 | PATCH | `/vision-boards/:id/items/:itemId` | Auth required — update item |
 | DELETE | `/vision-boards/:id/items/:itemId` | Auth required — delete item |
 | POST | `/vision-boards/:id/items/reorder` | Auth required — `{ ordered_item_ids }` |
+| POST | `/vision-boards/upload-url` | Auth required — signed/client upload plan |
+| GET/PUT/DELETE | `/reminders` | Auth required — morning/evening/369 reminders |
+| GET/DELETE | `/users/me` | Auth required — profile; DELETE cascades user data |
+| POST | `/ai/conversations/messages` | Auth required — coach chat |
+| GET/DELETE | `/ai/conversations[/:id]` | Auth required |
+| POST | `/ai/goal-plans` | Auth required — optional `save` into goal tasks |
+| GET | `/meditation` | Auth required — library (premium tracks locked) |
+| GET | `/subscriptions/entitlement` | Auth required |
+| POST | `/subscriptions/sandbox` | Auth required — disabled in production unless allowed |
 
 Send `Authorization: Bearer <supabase_access_token>`.
 

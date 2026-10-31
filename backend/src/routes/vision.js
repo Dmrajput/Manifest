@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/", requireAuth, visionController.listBoards);
 router.post("/", requireAuth, visionController.createBoard);
+router.post("/upload-url", requireAuth, visionController.createUploadPlan);
 router.get("/:id", requireAuth, visionController.getBoard);
 router.patch("/:id", requireAuth, visionController.updateBoard);
 router.delete("/:id", requireAuth, visionController.deleteBoard);

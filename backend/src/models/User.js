@@ -1,10 +1,20 @@
 const { Schema, model } = require("mongoose");
 
+const notificationPreferenceSchema = new Schema(
+  {
+    morning: { type: Boolean, default: true },
+    evening: { type: Boolean, default: true },
+    practice369: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const userPreferenceSchema = new Schema(
   {
     categories: { type: [String], default: [] },
     language: { type: String, default: "en" },
     theme: { type: String, default: "system" },
+    notifications: { type: notificationPreferenceSchema, default: () => ({}) },
   },
   { _id: false }
 );

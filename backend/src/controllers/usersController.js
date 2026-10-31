@@ -38,4 +38,15 @@ async function patchMe(req, res, next) {
   }
 }
 
-module.exports = { getMe, patchMe };
+async function deleteMe(req, res, next) {
+  try {
+    const accountService = require("../services/accountService");
+    const existing = await userService.getOrCreateFromAuth(req.auth);
+    const result = await accountService.deleteAccount(existing._id);
+    return success(res, { data: result, message: "Account deleted" });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { getMe, patchMe, deleteMe };

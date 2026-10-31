@@ -2,13 +2,15 @@
 
 ## Checklist
 
-- [ ] AI coach chat API + screen
-- [ ] AI goal plan generation
-- [ ] Meditation audio library + player
-- [ ] Progress analytics screen
-- [ ] RevenueCat + subscription verify webhook
-- [ ] Premium paywall screen
+- [x] AI coach chat API + screen
+- [x] AI goal plan generation
+- [x] Meditation audio library + player (demo assets)
+- [~] Progress analytics screen (basic stats exist; charts decorative)
+- [!] RevenueCat + subscription verify webhook — blocked on credentials
+- [x] Premium paywall screen + sandbox entitlement
 
-## Depends on
+## Blockers
 
-MVP (Weeks 1–6) complete
+- RevenueCat API keys + Play products
+- Licensed meditation audio
+- Optional production OPENAI_API_KEY (AI_COACH_MOCK=1 for local)

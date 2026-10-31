@@ -14,6 +14,9 @@ const practiceRouter = require("./routes/practice");
 const progressRouter = require("./routes/progress");
 const goalsRouter = require("./routes/goals");
 const visionRouter = require("./routes/vision");
+const remindersRouter = require("./routes/reminders");
+const meditationRouter = require("./routes/meditation");
+const subscriptionsRouter = require("./routes/subscriptions");
 
 const app = express();
 
@@ -59,6 +62,9 @@ app.use("/api/v1/practice", practiceRouter);
 app.use("/api/v1/progress", progressRouter);
 app.use("/api/v1/goals", goalsRouter);
 app.use("/api/v1/vision-boards", visionRouter);
+app.use("/api/v1/reminders", remindersRouter);
+app.use("/api/v1/meditation", meditationRouter);
+app.use("/api/v1/subscriptions", subscriptionsRouter);
 
 app.use(notFound);
 app.use(errorHandler);

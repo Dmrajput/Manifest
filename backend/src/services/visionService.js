@@ -1,4 +1,5 @@
 const { VisionBoard, UserActivity } = require("../models");
+const { assertOwnedVisionPath, removeVisionObject } = require("./storageService");
 
 const FREE_BOARD_LIMIT = 3;
 
@@ -41,7 +42,7 @@ async function getBoard(userId, boardId) {
   return serializeBoard(board);
 }
 
-async function createBoard(userId, payload, { premium = false } = {}) {
+async function createBoard(userId, payload, { premium = false, authProviderId } = {}) {
   if (!premium) {
     const count = await VisionBoard.countDocuments({ user_id: userId });
     if (count >= FREE_BOARD_LIMIT) {
@@ -93,13 +94,17 @@ async function deleteBoard(userId, boardId) {
   return { id: boardId, deleted: true };
 }
 
-async function addItem(userId, boardId, payload) {
+async function addItem(userId, boardId, payload, { authProviderId } = {}) {
   const board = await VisionBoard.findOne({ _id: boardId, user_id: userId });
   if (!board) {
     const error = new Error("Vision board not found");
     error.status = 404;
     error.code = "NOT_FOUND";
     throw error;
+  }
+
+  if (authProviderId) {
+    assertOwnedVisionPath(authProviderId, payload.image_path);
   }
 
   const position =
@@ -121,7 +126,7 @@ async function addItem(userId, boardId, payload) {
   return serializeBoard(board);
 }
 
-async function updateItem(userId, boardId, itemId, payload) {
+async function updateItem(userId, boardId, itemId, payload, { authProviderId } = {}) {
   const board = await VisionBoard.findOne({ _id: boardId, user_id: userId });
   if (!board) {
     const error = new Error("Vision board not found");
@@ -140,7 +145,10 @@ async function updateItem(userId, boardId, itemId, payload) {
 
   if (payload.caption !== undefined) item.caption = payload.caption;
   if (payload.position !== undefined) item.position = payload.position;
-  if (payload.image_path !== undefined) item.image_path = payload.image_path;
+  if (payload.image_path !== undefined) {
+    if (authProviderId) assertOwnedVisionPath(authProviderId, payload.image_path);
+    item.image_path = payload.image_path;
+  }
 
   await board.save();
   return serializeBoard(board);
@@ -163,8 +171,10 @@ async function deleteItem(userId, boardId, itemId) {
     throw error;
   }
 
+  const imagePath = item.image_path;
   item.deleteOne();
   await board.save();
+  await removeVisionObject(imagePath);
   return serializeBoard(board);
 }
 

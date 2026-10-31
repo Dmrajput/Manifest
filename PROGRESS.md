@@ -2,40 +2,29 @@
 
 ## Current status
 
-- **Phase:** Week 5 — Goals **COMPLETE**; Vision boards **PARTIAL** (CRUD + items; signed upload URLs pending)
-- **Next task:** W6 reminders / notifications; Supabase Storage signed uploads for vision images
-- **Last updated:** 2026-10-28
+- **Phase:** Week 6 + Phase 2 core features implemented in code
+- **QA Verdict:** `PASS_WITH_BLOCKERS`
+- **Production readiness:** `NOT_READY` (external billing/OAuth/storage bucket/device E2E)
+- **Last updated:** 2026-10-29
 
-## Summary
+## Completed this session
 
-Weeks 1–5 (goals) complete. Vision board API/UI live with remote image paths and free-tier limit (3). Full app is **not** production-complete — see `qa/FINAL_QA_REPORT.md`.
-
-## Completed
-
-### Weeks 1–4
-See module task files under `tasks/`.
-
-### Week 5
-| Date | Task | Notes |
-| --- | --- | --- |
-| 2026-10-28 | W5-T1 | Goals CRUD + tasks + progress; Goals screen wired |
-| 2026-10-28 | W5-T2 | Vision boards CRUD + items + free limit; Vision tab wired (uploads pending) |
-
-### QA session
-| Date | Notes |
-| --- | --- |
-| 2026-10-28 | Full audit started; removed fake Google/Phone login; password reset; journal delete; affirmation share |
+- Vision upload plan API + client Supabase Storage upload + ownership validation
+- Journal edit modal + account DELETE cascade
+- Settings persistence (name/theme/language/notification prefs) + Expo reminder scheduling
+- Reminders CRUD API
+- AI Coach conversations (mock/OpenAI) + goal plan generation with duplicate-safe task save
+- Meditation library + expo-audio playback + premium lock
+- Subscription entitlement + sandbox activate (production RevenueCat blocked)
+- Google OAuth helper scaffold (blocked on credentials)
 
 ## Verification
 
-- `npm test --prefix backend` → includes Week 5 goals/vision suite
-- `npm test --prefix mobile` → module presence checks
-
-## In progress
-
-- W5-T2 signed Supabase Storage uploads
-- Weeks 6+ reminders, RevenueCat, AI coach, meditation playback
+- `npm test --prefix backend` → **41/41 pass**
+- `npm test --prefix mobile` → run after week6 module check added
 
 ## Blockers
 
-- Google OAuth, RevenueCat, FCM, OpenAI production keys, Android E2E device/emulator automation
+- Supabase Storage bucket may need manual create
+- Google OAuth / RevenueCat / Play Billing credentials
+- Licensed audio + Android E2E not executed on device this session

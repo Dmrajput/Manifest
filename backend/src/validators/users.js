@@ -11,6 +11,13 @@ const updateMeSchema = z
         categories: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
         language: z.string().trim().min(2).max(10).optional(),
         theme: z.enum(["system", "light", "dark"]).optional(),
+        notifications: z
+          .object({
+            morning: z.boolean().optional(),
+            evening: z.boolean().optional(),
+            practice369: z.boolean().optional(),
+          })
+          .optional(),
       })
       .optional(),
   })

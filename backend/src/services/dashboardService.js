@@ -1,4 +1,4 @@
-const { Goal, JournalEntry, VisionBoard } = require("../models");
+const { Goal, JournalEntry, VisionBoard, UserActivity } = require("../models");
 const affirmationService = require("./affirmationService");
 const aiQuotaService = require("./aiQuotaService");
 const streakService = require("./streakService");
@@ -18,7 +18,16 @@ async function getDashboard(user) {
   const tomorrowStart = dateKeyToUtcDate(shiftDateKey(todayKey, 1));
   const categories = user.preferences?.categories || [];
 
-  const [affirmation, journalToday, visionCount, goals, quota, streak] = await Promise.all([
+  const [
+    affirmation,
+    journalToday,
+    visionCount,
+    goals,
+    quota,
+    streak,
+    affirmationRitualToday,
+    meditationToday,
+  ] = await Promise.all([
     affirmationService.pickAffirmationOfTheDay(user._id, categories),
     JournalEntry.exists({
       user_id: user._id,
@@ -28,6 +37,16 @@ async function getDashboard(user) {
     Goal.find({ user_id: user._id, status: "active" }).sort({ updated_at: -1 }).limit(1),
     aiQuotaService.getQuota(user._id, "affirmations"),
     streakService.calculateStreak(user._id, timezone),
+    UserActivity.exists({
+      user_id: user._id,
+      activity_type: { $in: ["affirmation_favorite", "ai_affirmation_generate"] },
+      created_at: { $gte: todayStart, $lt: tomorrowStart },
+    }),
+    UserActivity.exists({
+      user_id: user._id,
+      activity_type: "meditation_play",
+      created_at: { $gte: todayStart, $lt: tomorrowStart },
+    }),
   ]);
 
   const activeGoalDoc = goals[0] || null;
@@ -42,10 +61,10 @@ async function getDashboard(user) {
   }
 
   const rituals = {
-    affirmation: Boolean(affirmation),
+    affirmation: Boolean(affirmationRitualToday),
     journal: Boolean(journalToday),
     vision: visionCount > 0,
-    meditation: false,
+    meditation: Boolean(meditationToday),
   };
 
   const completedRituals = Object.values(rituals).filter(Boolean).length;

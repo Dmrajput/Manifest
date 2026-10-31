@@ -1,14 +1,11 @@
-const OpenAI = require("openai");
-
-function createOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
-  return new OpenAI({ apiKey });
-}
+/**
+ * Legacy OpenAI config kept for compatibility.
+ * Manifestly AI now uses Google AI Studio (Gemini) via ./gemini.js
+ */
+const { isGeminiConfigured, getModelName } = require("./gemini");
 
 module.exports = {
-  openai: createOpenAIClient(),
-  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  openai: null,
+  model: getModelName(),
+  isConfigured: isGeminiConfigured,
 };

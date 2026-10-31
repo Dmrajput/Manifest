@@ -56,11 +56,26 @@ describe("Week 4 journal, 369, streak", () => {
 
     assert.equal(created.status, 201);
     assert.equal(created.body.data.entry.type, "gratitude");
+
+    const daily = await request(app)
+      .post("/api/v1/journal")
+      .set("Authorization", authHeader())
+      .send({ content: "Daily reflection kept as free_write.", type: "free_write" });
+    assert.equal(daily.status, 201);
+    assert.equal(daily.body.data.entry.type, "free_write");
+
+    const filtered = await request(app)
+      .get("/api/v1/journal")
+      .query({ type: "free_write" })
+      .set("Authorization", authHeader());
+    assert.equal(filtered.status, 200);
+    assert.ok(filtered.body.data.entries.length >= 1);
+    assert.ok(filtered.body.data.entries.every((item) => item.type === "free_write"));
     const id = created.body.data.entry.id;
 
     const listed = await request(app).get("/api/v1/journal").set("Authorization", authHeader());
     assert.equal(listed.status, 200);
-    assert.equal(listed.body.data.entries.length, 1);
+    assert.equal(listed.body.data.entries.length, 2);
 
     const updated = await request(app)
       .patch(`/api/v1/journal/${id}`)
@@ -72,6 +87,10 @@ describe("Week 4 journal, 369, streak", () => {
     const deleted = await request(app).delete(`/api/v1/journal/${id}`).set("Authorization", authHeader());
     assert.equal(deleted.status, 200);
     assert.equal(deleted.body.data.deleted, true);
+
+    const remaining = await request(app).get("/api/v1/journal").set("Authorization", authHeader());
+    assert.equal(remaining.body.data.entries.length, 1);
+    assert.equal(remaining.body.data.entries[0].type, "free_write");
   });
 
   it("records 369 practice with period targets", async () => {

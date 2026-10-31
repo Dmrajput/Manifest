@@ -1,5 +1,5 @@
 const { AiConversation } = require("../models");
-const { openai, model } = require("../config/openai");
+const { generateChat, generateText, isGeminiConfigured } = require("../config/gemini");
 const aiQuotaService = require("./aiQuotaService");
 
 const SYSTEM_PROMPT =
@@ -60,6 +60,10 @@ function looksUnsafe(text) {
   return banned.some((phrase) => lowered.includes(phrase));
 }
 
+function useMock() {
+  return process.env.AI_COACH_MOCK === "1" || !isGeminiConfigured();
+}
+
 async function sendMessage(userId, { conversationId, message }) {
   if (!message?.trim()) {
     const error = new Error("Message is required");
@@ -99,18 +103,26 @@ async function sendMessage(userId, { conversationId, message }) {
   let assistantText;
   let tokens = 0;
 
-  if (process.env.AI_COACH_MOCK === "1" || !openai) {
+  if (useMock()) {
     assistantText = mockCoachReply(message.trim());
   } else {
-    const history = conversation.messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-    assistantText = completion.choices?.[0]?.message?.content?.trim() || mockCoachReply(message.trim());
-    tokens = completion.usage?.total_tokens || 0;
+    try {
+      const history = conversation.messages
+        .slice(0, -1)
+        .slice(-12)
+        .map((m) => ({ role: m.role, content: m.content }));
+      const result = await generateChat({
+        system: SYSTEM_PROMPT,
+        history,
+        message: message.trim(),
+        temperature: 0.7,
+        maxOutputTokens: 500,
+      });
+      assistantText = result.text?.trim() || mockCoachReply(message.trim());
+      tokens = result.tokens || 0;
+    } catch {
+      assistantText = mockCoachReply(message.trim());
+    }
   }
 
   conversation.messages.push({ role: "assistant", content: assistantText });
@@ -129,44 +141,34 @@ async function generateGoalPlan(userId, { goalTitle, description, weeks = 4 }) {
 
   const safeWeeks = Math.min(Math.max(Number(weeks) || 4, 1), 8);
   let tasks = [];
+  let tokens = 0;
 
-  if (process.env.AI_COACH_MOCK === "1" || !openai) {
+  if (useMock()) {
     tasks = Array.from({ length: safeWeeks }).flatMap((_, week) => [
       { title: `Week ${week + 1}: Research step for ${goalTitle}`, weight: 1 },
       { title: `Week ${week + 1}: Daily practice related to ${goalTitle}`, weight: 1 },
     ]);
   } else {
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Return ONLY valid JSON: {\"tasks\":[{\"title\":\"...\",\"weight\":1}]}. Create realistic daily/weekly action tasks. No markdown.",
-        },
-        {
-          role: "user",
-          content: `Goal: ${goalTitle}\nDescription: ${description || "n/a"}\nWeeks: ${safeWeeks}`,
-        },
-      ],
-      temperature: 0.5,
-      max_tokens: 800,
-    });
     try {
-      const parsed = JSON.parse(completion.choices?.[0]?.message?.content || "{}");
-      tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+      const result = await generateText({
+        system:
+          'Return ONLY valid JSON: {"tasks":[{"title":"...","weight":1}]}. Create realistic daily/weekly action tasks. No markdown.',
+        prompt: `Goal: ${goalTitle}\nDescription: ${description || "n/a"}\nWeeks: ${safeWeeks}`,
+        temperature: 0.5,
+        maxOutputTokens: 800,
+        json: true,
+      });
+      tokens = result.tokens || 0;
+      tasks = Array.isArray(result.json?.tasks) ? result.json.tasks : [];
+      if (tasks.length === 0) {
+        tasks = [{ title: `Define first milestone for ${goalTitle}`, weight: 1 }];
+      }
     } catch {
       tasks = [{ title: `Define first milestone for ${goalTitle}`, weight: 1 }];
     }
-    await aiQuotaService.recordUsage(userId, {
-      feature: "goal_plan",
-      tokens: completion.usage?.total_tokens || 0,
-    });
   }
 
-  if (process.env.AI_COACH_MOCK === "1" || !openai) {
-    await aiQuotaService.recordUsage(userId, { feature: "goal_plan", tokens: 0 });
-  }
+  await aiQuotaService.recordUsage(userId, { feature: "goal_plan", tokens });
 
   return {
     goal_title: goalTitle,

@@ -21,6 +21,19 @@ async function listAffirmations(req, res, next) {
   }
 }
 
+async function listCategories(req, res, next) {
+  try {
+    await userService.getOrCreateFromAuth(req.auth);
+    const categories = await affirmationService.listCategories();
+    return success(res, {
+      data: { categories },
+      message: "Affirmation categories loaded",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function saveFavorite(req, res, next) {
   try {
     const parsed = favoriteSchema.safeParse(req.body);
@@ -49,4 +62,4 @@ async function saveFavorite(req, res, next) {
   }
 }
 
-module.exports = { listAffirmations, saveFavorite };
+module.exports = { listAffirmations, listCategories, saveFavorite };

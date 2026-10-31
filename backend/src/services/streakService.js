@@ -14,6 +14,7 @@ const RITUAL_ACTIVITY_TYPES = [
   "practice_369_complete",
   "ai_affirmation_generate",
   "affirmation_favorite",
+  "meditation_play",
 ];
 
 async function collectQualifyingDateKeys(userId, timezone) {

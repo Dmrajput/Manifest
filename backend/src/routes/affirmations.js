@@ -4,6 +4,7 @@ const affirmationsController = require("../controllers/affirmationsController");
 
 const router = Router();
 
+router.get("/categories", requireAuth, affirmationsController.listCategories);
 router.get("/", requireAuth, affirmationsController.listAffirmations);
 router.post("/favorites", requireAuth, affirmationsController.saveFavorite);
 

@@ -4,6 +4,7 @@ const affirmationService = require("../services/affirmationService");
 const aiAffirmationService = require("../services/aiAffirmationService");
 const aiQuotaService = require("../services/aiQuotaService");
 const { generateAffirmationsSchema } = require("../validators/affirmations");
+const { normalizeCategory } = require("../constants/affirmationCategories");
 const { UserActivity } = require("../models");
 
 async function generateAffirmations(req, res, next) {
@@ -21,7 +22,11 @@ async function generateAffirmations(req, res, next) {
     const user = await userService.getOrCreateFromAuth(req.auth);
     const quotaBefore = await aiQuotaService.assertWithinQuota(user._id, "affirmations");
 
-    const generated = await aiAffirmationService.generateAffirmations(parsed.data);
+    const payload = {
+      ...parsed.data,
+      category: normalizeCategory(parsed.data.category) || parsed.data.category || "confidence",
+    };
+    const generated = await aiAffirmationService.generateAffirmations(payload);
     let affirmations = generated.affirmations;
 
     if (parsed.data.save !== false) {
@@ -37,7 +42,11 @@ async function generateAffirmations(req, res, next) {
     await UserActivity.create({
       user_id: user._id,
       activity_type: "ai_affirmation_generate",
-      metadata: { count: affirmations.length, provider: generated.provider },
+      metadata: {
+        count: affirmations.length,
+        provider: generated.provider,
+        category: payload.category,
+      },
     });
 
     const quota = await aiQuotaService.getQuota(user._id, "affirmations");

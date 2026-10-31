@@ -13,6 +13,15 @@ function errorHandler(err, req, res, next) {
     return next(err);
   }
 
+  // Invalid MongoDB ObjectId / cast failures → controlled 400 (DB-003 / API-003)
+  if (err.name === "CastError" || err.kind === "ObjectId") {
+    return fail(res, {
+      code: "VALIDATION_ERROR",
+      message: "Invalid identifier",
+      status: 400,
+    });
+  }
+
   const status = err.status || err.statusCode || 500;
   const code = err.code || (status === 401 ? "UNAUTHORIZED" : "INTERNAL_ERROR");
   const message = status >= 500 ? "Internal server error" : err.message || "Request failed";

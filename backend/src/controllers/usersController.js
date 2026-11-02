@@ -27,7 +27,9 @@ async function patchMe(req, res, next) {
     }
 
     const existing = await userService.getOrCreateFromAuth(req.auth);
-    const user = await userService.updateMe(existing._id, parsed.data);
+    const user = await userService.updateMe(existing._id, parsed.data, {
+      authProviderId: req.auth.id,
+    });
 
     return success(res, {
       data: { user: userService.serializeUser(user) },
@@ -42,11 +44,23 @@ async function deleteMe(req, res, next) {
   try {
     const accountService = require("../services/accountService");
     const existing = await userService.getOrCreateFromAuth(req.auth);
-    const result = await accountService.deleteAccount(existing._id);
+    const result = await accountService.deleteAccount(existing._id, { authProviderId: req.auth.id });
     return success(res, { data: result, message: "Account deleted" });
   } catch (error) {
     return next(error);
   }
 }
 
-module.exports = { getMe, patchMe, deleteMe };
+async function createAvatarUploadUrl(req, res, next) {
+  try {
+    const contentType = req.body?.content_type || "image/jpeg";
+    const storageService = require("../services/storageService");
+    await userService.getOrCreateFromAuth(req.auth);
+    const plan = await storageService.createProfileAvatarUploadPlan(req.auth.id, { contentType });
+    return success(res, { data: { upload: plan }, message: "Avatar upload plan created" });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { getMe, patchMe, deleteMe, createAvatarUploadUrl };

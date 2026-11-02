@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/me", requireAuth, usersController.getMe);
 router.patch("/me", requireAuth, usersController.patchMe);
+router.post("/me/avatar/upload-url", requireAuth, usersController.createAvatarUploadUrl);
 router.delete("/me", requireAuth, usersController.deleteMe);
 
 module.exports = router;

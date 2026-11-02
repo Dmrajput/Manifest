@@ -4,11 +4,13 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { getSupabaseAdmin } = require("../config/supabase");
 
 const MAX_BYTES = Number(process.env.VISION_MAX_BYTES) || 5 * 1024 * 1024;
+const PROFILE_MAX_BYTES = Number(process.env.PROFILE_MAX_BYTES) || 512 * 1024;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VISION_KEY_PREFIX = (process.env.R2_VISION_PREFIX || process.env.AWS_VISION_PREFIX || "vision").replace(
   /^\/+|\/+$/g,
   ""
 );
+const PROFILE_KEY_PREFIX = (process.env.R2_PROFILE_PREFIX || "profile").replace(/^\/+|\/+$/g, "");
 const PRESIGN_EXPIRES_SECONDS = Number(process.env.R2_UPLOAD_URL_EXPIRES || process.env.AWS_UPLOAD_URL_EXPIRES) || 60 * 10;
 
 /** Legacy Supabase bucket name (fallback when R2 is not configured). */
@@ -170,6 +172,7 @@ function isOurStorageUrl(imagePath) {
     return true;
   }
   if (imagePath.startsWith(`${VISION_KEY_PREFIX}/`)) return true;
+  if (imagePath.startsWith(`${PROFILE_KEY_PREFIX}/`)) return true;
   return false;
 }
 
@@ -183,6 +186,125 @@ function assertOwnedVisionPath(authProviderId, imagePath) {
     error.code = "FORBIDDEN";
     throw error;
   }
+}
+
+function buildProfileAvatarPath(authProviderId, contentType) {
+  const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+  return `${PROFILE_KEY_PREFIX}/${authProviderId}/avatar.${ext}`;
+}
+
+function isOwnedProfilePath(authProviderId, imagePath) {
+  if (!imagePath || typeof imagePath !== "string" || !authProviderId) return false;
+  const key = extractObjectKey(imagePath) || imagePath;
+  return key.startsWith(`${PROFILE_KEY_PREFIX}/${authProviderId}/`);
+}
+
+function assertOwnedProfilePath(authProviderId, imagePath) {
+  if (!imagePath) return;
+  if (isExternalHttpsUrl(imagePath) && !isOurStorageUrl(imagePath)) {
+    const error = new Error("Avatar must be uploaded through the app");
+    error.status = 403;
+    error.code = "FORBIDDEN";
+    throw error;
+  }
+  if (!isOwnedProfilePath(authProviderId, imagePath)) {
+    const error = new Error("Avatar path is not owned by the authenticated user");
+    error.status = 403;
+    error.code = "FORBIDDEN";
+    throw error;
+  }
+}
+
+async function createProfileAvatarUploadPlan(authProviderId, { contentType = "image/jpeg" } = {}) {
+  assertAllowedMime(contentType);
+
+  if (r2Configured()) {
+    const client = getR2Client();
+    if (!client) {
+      const error = new Error("Cloudflare R2 is not configured");
+      error.status = 503;
+      error.code = "STORAGE_UNAVAILABLE";
+      throw error;
+    }
+    const path = buildProfileAvatarPath(authProviderId, contentType);
+    const command = new PutObjectCommand({
+      Bucket: getR2Bucket(),
+      Key: path,
+      ContentType: contentType,
+    });
+    const uploadUrl = await getSignedUrl(client, command, { expiresIn: PRESIGN_EXPIRES_SECONDS });
+    return {
+      mode: "s3_presigned",
+      provider: "cloudflare_r2",
+      bucket: getR2Bucket(),
+      region: "auto",
+      path,
+      upload_url: uploadUrl,
+      public_url: publicObjectUrl(path),
+      headers: { "Content-Type": contentType },
+      max_bytes: PROFILE_MAX_BYTES,
+      content_type: contentType,
+      expires_in: PRESIGN_EXPIRES_SECONDS,
+    };
+  }
+
+  const error = new Error("Profile photo storage is not configured");
+  error.status = 503;
+  error.code = "STORAGE_UNAVAILABLE";
+  throw error;
+}
+
+async function assertProfileObjectReady(authProviderId, imagePath) {
+  if (!r2Configured()) return;
+  assertOwnedProfilePath(authProviderId, imagePath);
+  const key = extractObjectKey(imagePath) || imagePath;
+  if (!key) {
+    const error = new Error("Invalid avatar reference");
+    error.status = 400;
+    error.code = "VALIDATION_ERROR";
+    throw error;
+  }
+
+  const client = getR2Client();
+  if (!client) return;
+
+  const minBytes = Number(process.env.PROFILE_MIN_OBJECT_BYTES) || 256;
+  try {
+    const head = await client.send(
+      new HeadObjectCommand({
+        Bucket: getR2Bucket(),
+        Key: key,
+      })
+    );
+    const size = head.ContentLength ?? 0;
+    if (size > PROFILE_MAX_BYTES) {
+      await client.send(new DeleteObjectCommand({ Bucket: getR2Bucket(), Key: key }));
+      const error = new Error(`Profile photo must be under ${Math.round(PROFILE_MAX_BYTES / 1024)} KB`);
+      error.status = 400;
+      error.code = "VALIDATION_ERROR";
+      throw error;
+    }
+    if (size < minBytes) {
+      await client.send(new DeleteObjectCommand({ Bucket: getR2Bucket(), Key: key }));
+      const error = new Error("Profile photo upload failed. Try a different image.");
+      error.status = 400;
+      error.code = "INVALID_UPLOAD";
+      throw error;
+    }
+  } catch (error) {
+    if (error.status === 400) throw error;
+    const err = new Error("Could not verify profile photo. Try uploading again.");
+    err.status = 400;
+    err.code = "STORAGE_VERIFY_FAILED";
+    throw err;
+  }
+}
+
+async function removeProfileAvatarIfOwned(authProviderId, avatarUrl) {
+  if (!avatarUrl || !authProviderId || !isOwnedProfilePath(authProviderId, avatarUrl)) {
+    return { deleted: false, reason: "SKIP" };
+  }
+  return removeVisionObject(avatarUrl);
 }
 
 async function createR2UploadPlan(authProviderId, contentType) {
@@ -348,14 +470,21 @@ async function removeVisionObject(pathOrUrl) {
 module.exports = {
   VISION_BUCKET,
   MAX_BYTES,
+  PROFILE_MAX_BYTES,
   ALLOWED_MIME,
   createVisionUploadPlan,
+  createProfileAvatarUploadPlan,
   removeVisionObject,
+  removeProfileAvatarIfOwned,
   assertOwnedVisionPath,
+  assertOwnedProfilePath,
   assertVisionObjectReady,
+  assertProfileObjectReady,
   isOwnedVisionPath,
+  isOwnedProfilePath,
   publicObjectUrl,
   buildObjectPath,
+  buildProfileAvatarPath,
   r2Configured,
   extractObjectKey,
 };

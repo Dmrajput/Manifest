@@ -1,4 +1,9 @@
 const { User } = require("../models");
+const {
+  assertOwnedProfilePath,
+  assertProfileObjectReady,
+  removeProfileAvatarIfOwned,
+} = require("./storageService");
 
 function serializeUser(user) {
   return {
@@ -60,11 +65,31 @@ async function getOrCreateFromAuth(auth) {
   return user;
 }
 
-async function updateMe(userId, updates) {
+async function updateMe(userId, updates, { authProviderId } = {}) {
+  const existing = await User.findById(userId);
+  if (!existing) {
+    const error = new Error("User not found");
+    error.status = 404;
+    error.code = "NOT_FOUND";
+    throw error;
+  }
+
   const setOps = {};
 
   if (updates.name !== undefined) setOps.name = updates.name;
-  if (updates.avatar !== undefined) setOps.avatar = updates.avatar;
+
+  if (updates.avatar !== undefined) {
+    const nextAvatar = updates.avatar || null;
+    if (nextAvatar && authProviderId) {
+      assertOwnedProfilePath(authProviderId, nextAvatar);
+      await assertProfileObjectReady(authProviderId, nextAvatar);
+    }
+    if (existing.avatar && existing.avatar !== nextAvatar && authProviderId) {
+      await removeProfileAvatarIfOwned(authProviderId, existing.avatar);
+    }
+    setOps.avatar = nextAvatar;
+  }
+
   if (updates.timezone !== undefined) setOps.timezone = updates.timezone;
   if (updates.onboarding_completed !== undefined) {
     setOps.onboarding_completed = updates.onboarding_completed;

@@ -11,9 +11,14 @@ const {
   AiUsage,
   UserActivity,
 } = require("../models");
-const { removeVisionObject } = require("./storageService");
+const { removeVisionObject, removeProfileAvatarIfOwned } = require("./storageService");
 
-async function deleteAccount(userId) {
+async function deleteAccount(userId, { authProviderId } = {}) {
+  const user = await User.findById(userId);
+  if (user?.avatar && authProviderId) {
+    await removeProfileAvatarIfOwned(authProviderId, user.avatar);
+  }
+
   const boards = await VisionBoard.find({ user_id: userId });
   for (const board of boards) {
     for (const item of board.items || []) {

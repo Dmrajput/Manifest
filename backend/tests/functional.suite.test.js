@@ -311,6 +311,26 @@ describe("Functional suite — auth/API/DB", () => {
     assert.equal(denied.status, 403);
   });
 
+  it("VIS-003: upload-url returns R2 presigned plan", async () => {
+    process.env.R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || "d5edc90a184db102f29fcd347d5eb2bc";
+    process.env.R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || "896c3afc96bcb0de38c82e6393dfbeb3";
+    process.env.R2_SECRET_ACCESS_KEY =
+      process.env.R2_SECRET_ACCESS_KEY ||
+      "17fdb6c4717b26f1d0c10084d8455d3614a41a16e0f2de8f187d39900f89f880";
+    process.env.R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "manifest-uploads";
+    process.env.R2_PUBLIC_URL =
+      process.env.R2_PUBLIC_URL || "https://pub-b3083634d0884c2fb98e96cbb39635d3.r2.dev";
+    delete require.cache[require.resolve("../src/services/storageService")];
+
+    const res = await request(app)
+      .post("/api/v1/vision-boards/upload-url")
+      .set("Authorization", authHeader())
+      .send({ content_type: "image/png" });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.upload.provider, "cloudflare_r2");
+    assert.match(res.body.data.upload.path, /^vision\/ft-user-a\/.+\.png$/);
+  });
+
   // GOAL-001..008 / GOAL-009/011/012
   it("GOAL create/edit/delete/tasks/progress/AI plan/IDOR", async () => {
     const created = await request(app)

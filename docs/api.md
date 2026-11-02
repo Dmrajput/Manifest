@@ -61,7 +61,7 @@ Error:
 | PATCH | `/vision-boards/:id/items/:itemId` | Auth required — update item |
 | DELETE | `/vision-boards/:id/items/:itemId` | Auth required — delete item |
 | POST | `/vision-boards/:id/items/reorder` | Auth required — `{ ordered_item_ids }` |
-| POST | `/vision-boards/upload-url` | Auth required — signed/client upload plan |
+| POST | `/vision-boards/upload-url` | Auth required — Cloudflare R2 (S3-compatible) presigned PUT plan; falls back to Supabase Storage if R2 env unset |
 | GET/PUT/DELETE | `/reminders` | Auth required — morning/evening/369 reminders |
 | GET/DELETE | `/users/me` | Auth required — profile; DELETE cascades user data |
 | POST | `/ai/conversations/messages` | Auth required — coach chat |

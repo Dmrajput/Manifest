@@ -1,5 +1,5 @@
 const { VisionBoard, UserActivity } = require("../models");
-const { assertOwnedVisionPath, removeVisionObject } = require("./storageService");
+const { assertOwnedVisionPath, assertVisionObjectReady, removeVisionObject } = require("./storageService");
 
 const FREE_BOARD_LIMIT = 3;
 
@@ -84,13 +84,21 @@ async function updateBoard(userId, boardId, payload) {
 }
 
 async function deleteBoard(userId, boardId) {
-  const result = await VisionBoard.findOneAndDelete({ _id: boardId, user_id: userId });
-  if (!result) {
+  const board = await VisionBoard.findOne({ _id: boardId, user_id: userId });
+  if (!board) {
     const error = new Error("Vision board not found");
     error.status = 404;
     error.code = "NOT_FOUND";
     throw error;
   }
+
+  for (const item of board.items || []) {
+    if (item.image_path) {
+      await removeVisionObject(item.image_path);
+    }
+  }
+
+  await VisionBoard.deleteOne({ _id: boardId, user_id: userId });
   return { id: boardId, deleted: true };
 }
 
@@ -105,6 +113,7 @@ async function addItem(userId, boardId, payload, { authProviderId } = {}) {
 
   if (authProviderId) {
     assertOwnedVisionPath(authProviderId, payload.image_path);
+    await assertVisionObjectReady(authProviderId, payload.image_path);
   }
 
   const position =
@@ -173,6 +182,10 @@ async function deleteItem(userId, boardId, itemId) {
 
   const imagePath = item.image_path;
   item.deleteOne();
+
+  const remaining = [...board.items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  board.cover_image = remaining[0]?.image_path || null;
+
   await board.save();
   await removeVisionObject(imagePath);
   return serializeBoard(board);

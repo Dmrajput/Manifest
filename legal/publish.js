@@ -115,7 +115,7 @@ const termsOfService = {
     {
       heading: "Subscriptions",
       body:
-        "If premium features are offered, pricing and billing terms will be shown before purchase. Subscriptions processed through Google Play are subject to Google’s terms and refund policies. Sandbox or test entitlements are for development only.",
+        "If premium features are offered, pricing and billing terms will be shown before purchase. Payments are processed by Razorpay (UPI, cards, netbanking, and other methods Razorpay supports). Refunds and chargebacks follow Razorpay and applicable law. Test or sandbox entitlements in non-production builds are for development only.",
     },
     {
       heading: "Termination",

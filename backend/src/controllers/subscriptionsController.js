@@ -3,6 +3,7 @@ const { success, fail } = require("../utils/response");
 const userService = require("../services/userService");
 const { Subscription } = require("../models");
 const aiQuotaService = require("../services/aiQuotaService");
+const razorpayService = require("../services/razorpayService");
 
 const verifySchema = z.object({
   product_id: z.string().trim().min(1),
@@ -12,6 +13,21 @@ const verifySchema = z.object({
   provider: z.string().optional(),
 });
 
+const createOrderSchema = z.object({
+  plan: z.enum(["monthly", "yearly"]),
+});
+
+const verifyPaymentSchema = z.object({
+  plan: z.enum(["monthly", "yearly"]),
+  razorpay_order_id: z.string().trim().min(1),
+  razorpay_payment_id: z.string().trim().min(1),
+  razorpay_signature: z.string().trim().min(1),
+});
+
+function productIdFromPlan(plan) {
+  return plan === "yearly" ? "premium_yearly" : "premium_monthly";
+}
+
 async function getEntitlement(req, res, next) {
   try {
     const user = await userService.getOrCreateFromAuth(req.auth);
@@ -20,6 +36,8 @@ async function getEntitlement(req, res, next) {
     return success(res, {
       data: {
         premium,
+        payments_configured: razorpayService.isConfigured(),
+        plans: razorpayService.listPlans(),
         subscription: sub
           ? {
               product_id: sub.product_id,
@@ -36,8 +54,73 @@ async function getEntitlement(req, res, next) {
   }
 }
 
+async function createRazorpayOrder(req, res, next) {
+  try {
+    const parsed = createOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, {
+        code: "VALIDATION_ERROR",
+        message: "Invalid plan",
+        status: 400,
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const user = await userService.getOrCreateFromAuth(req.auth);
+    const productId = productIdFromPlan(parsed.data.plan);
+    const checkout = await razorpayService.createPremiumOrder(user, productId);
+
+    return success(res, {
+      data: { checkout },
+      message: "Razorpay order created",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function verifyRazorpayPayment(req, res, next) {
+  try {
+    const parsed = verifyPaymentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, {
+        code: "VALIDATION_ERROR",
+        message: "Invalid payment verification payload",
+        status: 400,
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const user = await userService.getOrCreateFromAuth(req.auth);
+    const productId = productIdFromPlan(parsed.data.plan);
+    const result = await razorpayService.verifyAndActivatePremium(user._id, {
+      productId,
+      orderId: parsed.data.razorpay_order_id,
+      paymentId: parsed.data.razorpay_payment_id,
+      signature: parsed.data.razorpay_signature,
+    });
+
+    const sub = result.subscription;
+    return success(res, {
+      data: {
+        premium: true,
+        subscription: {
+          product_id: sub.product_id,
+          status: sub.status,
+          expires_at: sub.expires_at,
+          provider: sub.provider,
+        },
+        payment_id: result.payment_id,
+      },
+      message: "Premium activated",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 /**
- * Sandbox/dev entitlement upsert. Production must verify via RevenueCat webhook + shared secret.
+ * Sandbox/dev entitlement upsert. Disabled in production unless ALLOW_SANDBOX_ENTITLEMENTS=1.
  */
 async function upsertSandboxEntitlement(req, res, next) {
   try {
@@ -71,7 +154,7 @@ async function upsertSandboxEntitlement(req, res, next) {
         },
         $setOnInsert: { user_id: user._id, product_id: parsed.data.product_id },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     return success(res, {
@@ -91,4 +174,9 @@ async function upsertSandboxEntitlement(req, res, next) {
   }
 }
 
-module.exports = { getEntitlement, upsertSandboxEntitlement };
+module.exports = {
+  getEntitlement,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  upsertSandboxEntitlement,
+};

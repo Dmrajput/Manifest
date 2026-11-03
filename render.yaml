@@ -40,3 +40,7 @@ services:
         value: vision
       - key: R2_PROFILE_PREFIX
         value: profile
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

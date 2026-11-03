@@ -17,6 +17,7 @@ const visionRouter = require("./routes/vision");
 const remindersRouter = require("./routes/reminders");
 const meditationRouter = require("./routes/meditation");
 const subscriptionsRouter = require("./routes/subscriptions");
+const legalRouter = require("./routes/legal");
 
 const app = express();
 
@@ -52,6 +53,8 @@ app.get("/api/v1/health", (req, res) => {
     message: "Manifestly API is running",
   });
 });
+
+app.use("/legal", legalRouter);
 
 app.use("/api/v1/users", usersRouter);
 app.use("/api/v1/dashboard", dashboardRouter);

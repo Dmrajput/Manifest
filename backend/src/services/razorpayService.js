@@ -2,18 +2,50 @@ const crypto = require("crypto");
 const Razorpay = require("razorpay");
 const { Subscription } = require("../models");
 
-const PLANS = {
-  premium_monthly: {
-    amountPaise: Number(process.env.PREMIUM_MONTHLY_PAISE) || 9900,
-    days: 30,
-    label: "Manifestly Premium — Monthly",
-  },
-  premium_yearly: {
-    amountPaise: Number(process.env.PREMIUM_YEARLY_PAISE) || 69900,
-    days: 365,
-    label: "Manifestly Premium — Yearly",
-  },
-};
+function readAmountPaise({ paiseKey, inrKey, defaultPaise }) {
+  const rawPaise = process.env[paiseKey]?.trim();
+  if (rawPaise) {
+    const parsed = Number(rawPaise);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  }
+  const rawInr = process.env[inrKey]?.trim();
+  if (rawInr) {
+    const parsed = Number(rawInr);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed * 100);
+    }
+  }
+  return defaultPaise;
+}
+
+function buildPlans() {
+  return {
+    premium_monthly: {
+      plan: "monthly",
+      amountPaise: readAmountPaise({
+        paiseKey: "PREMIUM_MONTHLY_PAISE",
+        inrKey: "PREMIUM_MONTHLY_INR",
+        defaultPaise: 100,
+      }),
+      days: Number(process.env.PREMIUM_MONTHLY_DAYS) || 30,
+      label: process.env.PREMIUM_MONTHLY_LABEL?.trim() || "Manifestly Premium — Monthly",
+    },
+    premium_yearly: {
+      plan: "yearly",
+      amountPaise: readAmountPaise({
+        paiseKey: "PREMIUM_YEARLY_PAISE",
+        inrKey: "PREMIUM_YEARLY_INR",
+        defaultPaise: 69900,
+      }),
+      days: Number(process.env.PREMIUM_YEARLY_DAYS) || 365,
+      label: process.env.PREMIUM_YEARLY_LABEL?.trim() || "Manifestly Premium — Yearly",
+    },
+  };
+}
+
+const PLANS = buildPlans();
 
 function isConfigured() {
   return Boolean(process.env.RAZORPAY_KEY_ID?.trim() && process.env.RAZORPAY_KEY_SECRET?.trim());
@@ -35,6 +67,7 @@ function getPlan(productId) {
 
 function listPlans() {
   return Object.entries(PLANS).map(([id, plan]) => ({
+    plan: plan.plan,
     product_id: id,
     amount_paise: plan.amountPaise,
     amount_inr: plan.amountPaise / 100,

@@ -50,3 +50,5 @@ services:
         sync: false
       - key: API_PUBLIC_URL
         value: https://manifestly-api.onrender.com
+      - key: CHECKOUT_PUBLIC_URL
+        value: https://manifestly-api.onrender.com

@@ -52,19 +52,51 @@ function verifyWebCheckoutToken(token) {
 }
 
 function resolveApiPublicBase(req) {
+  if (req) {
+    const host = req.get("x-forwarded-host") || req.get("host");
+    if (host) {
+      const proto = req.get("x-forwarded-proto") || req.protocol || "http";
+      const fromRequest = `${proto}://${host}`.replace(/\/+$/, "");
+      if (process.env.NODE_ENV !== "production") {
+        return fromRequest;
+      }
+    }
+  }
+
   const configured = process.env.API_PUBLIC_URL?.trim().replace(/\/+$/, "");
   if (configured) {
     return configured;
   }
-  const host = req.get("x-forwarded-host") || req.get("host");
-  const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+  const host = req?.get("x-forwarded-host") || req?.get("host");
+  const proto = req?.get("x-forwarded-proto") || req?.protocol || "https";
   return `${proto}://${host}`.replace(/\/+$/, "");
 }
 
+/** Razorpay-whitelisted HTTPS origin for checkout WebView (see CHECKOUT_PUBLIC_URL). */
+function resolveCheckoutPageBase(req) {
+  const checkoutPublic = process.env.CHECKOUT_PUBLIC_URL?.trim().replace(/\/+$/, "");
+  if (checkoutPublic) {
+    return checkoutPublic;
+  }
+  return resolveApiPublicBase(req);
+}
+
 function buildWebCheckoutUrl(req, token) {
-  const base = resolveApiPublicBase(req);
+  const base = resolveCheckoutPageBase(req);
   return `${base}/api/v1/subscriptions/razorpay/checkout?token=${encodeURIComponent(token)}`;
 }
+
+/** Overrides default Helmet CSP so Razorpay checkout.js + modal can run in WebView. */
+const RAZORPAY_CHECKOUT_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https://api.razorpay.com https://*.razorpay.com https://lumberjack.razorpay.com wss://*.razorpay.com",
+  "frame-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com",
+  "child-src https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com blob:",
+  "font-src 'self' data: https:",
+].join("; ");
 
 function renderCheckoutHtml(session) {
   const plan = session.plan === "yearly" ? "yearly" : "monthly";
@@ -92,6 +124,7 @@ function renderCheckoutHtml(session) {
   button { background: #7c3aed; color: #fff; border: 0; padding: 14px 20px; border-radius: 12px; font-size: 16px; width: 100%; margin-top: 8px; }
   button:disabled { opacity: 0.55; }
 </style>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head><body>
 <p>Complete your premium payment securely with Razorpay.</p>
 <p id="status">Loading Razorpay…</p>
@@ -143,8 +176,16 @@ function renderCheckoutHtml(session) {
   function openCheckout() {
     var btn = document.getElementById("pay");
     if (typeof Razorpay === "undefined") {
-      setStatus("Razorpay is still loading. Wait a moment and try again.");
-      post({ type: "error", message: "Razorpay checkout script not loaded yet." });
+      setStatus("Loading Razorpay…");
+      var retry = document.createElement("script");
+      retry.src = "https://checkout.razorpay.com/v1/checkout.js";
+      retry.async = true;
+      retry.onload = function () { openCheckout(); };
+      retry.onerror = function () {
+        setStatus("Could not load Razorpay. Check internet and try again.");
+        post({ type: "error", message: "Could not load Razorpay checkout script." });
+      };
+      document.head.appendChild(retry);
       return;
     }
     btn.disabled = true;
@@ -167,6 +208,13 @@ function renderCheckoutHtml(session) {
     }
   }
 
+  function markReady() {
+    var btn = document.getElementById("pay");
+    if (!btn) return;
+    btn.disabled = false;
+    setStatus("Ready. Tap continue to pay.");
+  }
+
   function boot() {
     var btn = document.getElementById("pay");
     btn.addEventListener("click", function (e) {
@@ -175,23 +223,41 @@ function renderCheckoutHtml(session) {
     });
 
     if (window.Razorpay) {
-      btn.disabled = false;
-      setStatus("Ready. Tap continue to pay.");
+      markReady();
       return;
     }
+
+    var attempts = 0;
+    var timer = setInterval(function () {
+      attempts += 1;
+      if (window.Razorpay) {
+        clearInterval(timer);
+        markReady();
+        return;
+      }
+      if (attempts >= 40) {
+        clearInterval(timer);
+        btn.disabled = false;
+        setStatus("Could not load Razorpay. Tap the button to retry.");
+      }
+    }, 250);
 
     var script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = function () {
-      btn.disabled = false;
-      setStatus("Ready. Tap continue to pay.");
+      clearInterval(timer);
+      markReady();
     };
     script.onerror = function () {
-      setStatus("Could not load Razorpay. Check internet and try again.");
+      clearInterval(timer);
+      btn.disabled = false;
+      setStatus("Network blocked Razorpay script. Tap the button to retry.");
       post({ type: "error", message: "Could not load Razorpay checkout script." });
     };
-    document.head.appendChild(script);
+    if (!document.querySelector('script[src*="checkout.razorpay.com"]')) {
+      document.head.appendChild(script);
+    }
   }
 
   if (document.readyState === "loading") {
@@ -208,4 +274,5 @@ module.exports = {
   verifyWebCheckoutToken,
   buildWebCheckoutUrl,
   renderCheckoutHtml,
+  RAZORPAY_CHECKOUT_CSP,
 };

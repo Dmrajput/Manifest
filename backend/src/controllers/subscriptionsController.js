@@ -9,6 +9,7 @@ const {
   verifyWebCheckoutToken,
   buildWebCheckoutUrl,
   renderCheckoutHtml,
+  RAZORPAY_CHECKOUT_CSP,
 } = require("../services/razorpayWebCheckout");
 
 const verifySchema = z.object({
@@ -204,6 +205,8 @@ async function renderRazorpayCheckoutPage(req, res, next) {
     }
 
     const session = verifyWebCheckoutToken(token);
+    res.setHeader("Content-Security-Policy", RAZORPAY_CHECKOUT_CSP);
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
     res.type("html").send(renderCheckoutHtml(session));
   } catch (error) {
     return next(error);

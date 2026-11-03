@@ -35,6 +35,33 @@ function productIdFromPlan(plan) {
   return plan === "yearly" ? "premium_yearly" : "premium_monthly";
 }
 
+function razorpayKeyMode() {
+  const keyId = process.env.RAZORPAY_KEY_ID?.trim() || "";
+  if (keyId.startsWith("rzp_live_")) return "live";
+  if (keyId.startsWith("rzp_test_")) return "test";
+  return "unset";
+}
+
+/** Public Razorpay wiring check (no secrets). */
+async function getRazorpayPublicStatus(_req, res) {
+  const checkoutBase =
+    process.env.CHECKOUT_PUBLIC_URL?.trim().replace(/\/+$/, "") ||
+    process.env.API_PUBLIC_URL?.trim().replace(/\/+$/, "") ||
+    null;
+
+  return success(res, {
+    data: {
+      payments_configured: razorpayService.isConfigured(),
+      key_mode: razorpayKeyMode(),
+      checkout_public_url: checkoutBase,
+      checkout_path: "/api/v1/subscriptions/razorpay/checkout",
+      razorpay_dashboard_website: checkoutBase || "https://manifestly-api.onrender.com",
+      plans: razorpayService.listPlans(),
+    },
+    message: "Razorpay setup status",
+  });
+}
+
 async function getEntitlement(req, res, next) {
   try {
     const user = await userService.getOrCreateFromAuth(req.auth);
@@ -215,6 +242,7 @@ async function renderRazorpayCheckoutPage(req, res, next) {
 
 module.exports = {
   getEntitlement,
+  getRazorpayPublicStatus,
   createRazorpayOrder,
   verifyRazorpayPayment,
   upsertSandboxEntitlement,

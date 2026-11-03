@@ -55,6 +55,14 @@ describe("Razorpay subscriptions", () => {
     assert.equal(res.body.data.premium, false);
   });
 
+  it("GET /razorpay/status returns public setup info", async () => {
+    const res = await request(app).get("/api/v1/subscriptions/razorpay/status");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.payments_configured, false);
+    assert.equal(res.body.data.key_mode, "unset");
+    assert.ok(Array.isArray(res.body.data.plans));
+  });
+
   it("create-order returns 503 when Razorpay is not configured", async () => {
     const res = await request(app)
       .post("/api/v1/subscriptions/razorpay/create-order")

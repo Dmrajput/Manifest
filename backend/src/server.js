@@ -26,6 +26,14 @@ async function start() {
       console.warn("MONGODB_URI not set — starting API without database connection");
     }
 
+    const razorpayService = require("./services/razorpayService");
+    if (razorpayService.isConfigured()) {
+      const mode = (process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live_") ? "live" : "test";
+      console.log(`Razorpay payments enabled (${mode} mode)`);
+    } else {
+      console.warn("Razorpay keys missing — premium checkout disabled");
+    }
+
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Manifestly API running on port ${PORT}`);
     });

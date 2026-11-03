@@ -67,6 +67,7 @@ function buildWebCheckoutUrl(req, token) {
 }
 
 function renderCheckoutHtml(session) {
+  const plan = session.plan === "yearly" ? "yearly" : "monthly";
   const options = {
     key: session.key_id,
     amount: session.amount,
@@ -86,55 +87,118 @@ function renderCheckoutHtml(session) {
 <title>Manifestly Premium</title>
 <style>
   body { font-family: system-ui, sans-serif; background: #1a1028; color: #f5f0ff; margin: 0; padding: 24px; }
-  p { line-height: 1.5; }
-  button { background: #7c3aed; color: #fff; border: 0; padding: 14px 20px; border-radius: 12px; font-size: 16px; width: 100%; margin-top: 16px; }
+  p { line-height: 1.5; margin: 0 0 12px; }
+  #status { font-size: 14px; color: #c4b5fd; min-height: 20px; margin-bottom: 8px; }
+  button { background: #7c3aed; color: #fff; border: 0; padding: 14px 20px; border-radius: 12px; font-size: 16px; width: 100%; margin-top: 8px; }
+  button:disabled { opacity: 0.55; }
 </style>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head><body>
 <p>Complete your premium payment securely with Razorpay.</p>
-<button type="button" id="pay">Continue to payment</button>
+<p id="status">Loading Razorpay…</p>
+<button type="button" id="pay" disabled>Continue to payment</button>
 <script>
-  function post(obj) {
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(obj));
-    } else if (window.parent && window.parent !== window) {
-      window.parent.postMessage(JSON.stringify(obj), "*");
-    }
-  }
+  var PLAN = ${JSON.stringify(plan)};
   var options = ${payload};
-  options.handler = function (response) {
+
+  function post(obj) {
+    try {
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(obj));
+      }
+    } catch (e) {}
+  }
+
+  function setStatus(text) {
+    var el = document.getElementById("status");
+    if (el) el.textContent = text;
+    post({ type: "status", message: text });
+  }
+
+  function finishSuccess(response) {
     post({
       type: "success",
+      plan: PLAN,
       razorpay_payment_id: response.razorpay_payment_id,
       razorpay_order_id: response.razorpay_order_id,
       razorpay_signature: response.razorpay_signature
     });
-  };
+    var q = new URLSearchParams({
+      plan: PLAN,
+      razorpay_payment_id: response.razorpay_payment_id,
+      razorpay_order_id: response.razorpay_order_id,
+      razorpay_signature: response.razorpay_signature
+    });
+    window.location.href = "manifestly://premium/razorpay?" + q.toString();
+  }
+
+  options.handler = finishSuccess;
   options.modal = {
     ondismiss: function () {
       post({ type: "cancel" });
+      setStatus("Payment closed. Tap the button to try again.");
+      document.getElementById("pay").disabled = false;
     }
   };
+
   function openCheckout() {
+    var btn = document.getElementById("pay");
     if (typeof Razorpay === "undefined") {
-      post({ type: "error", message: "Could not load Razorpay checkout. Check your internet connection." });
+      setStatus("Razorpay is still loading. Wait a moment and try again.");
+      post({ type: "error", message: "Razorpay checkout script not loaded yet." });
       return;
     }
+    btn.disabled = true;
+    setStatus("Opening payment…");
     try {
       var rzp = new Razorpay(options);
       rzp.on("payment.failed", function (resp) {
-        post({
-          type: "error",
-          message: (resp.error && resp.error.description) || "Payment failed"
-        });
+        btn.disabled = false;
+        var msg = (resp.error && resp.error.description) || "Payment failed";
+        setStatus(msg);
+        post({ type: "error", message: msg });
       });
       rzp.open();
+      setStatus("Complete payment in the Razorpay window.");
     } catch (e) {
-      post({ type: "error", message: String(e.message || e) });
+      btn.disabled = false;
+      var err = String(e.message || e);
+      setStatus(err);
+      post({ type: "error", message: err });
     }
   }
-  document.getElementById("pay").onclick = openCheckout;
-  setTimeout(openCheckout, 300);
+
+  function boot() {
+    var btn = document.getElementById("pay");
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      openCheckout();
+    });
+
+    if (window.Razorpay) {
+      btn.disabled = false;
+      setStatus("Ready. Tap continue to pay.");
+      return;
+    }
+
+    var script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = function () {
+      btn.disabled = false;
+      setStatus("Ready. Tap continue to pay.");
+    };
+    script.onerror = function () {
+      setStatus("Could not load Razorpay. Check internet and try again.");
+      post({ type: "error", message: "Could not load Razorpay checkout script." });
+    };
+    document.head.appendChild(script);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
 </script>
 </body></html>`;
 }

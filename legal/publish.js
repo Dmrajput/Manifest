@@ -1,6 +1,6 @@
 /** Shared legal copy — edit `legal/publish.js` then copy to `mobile/src/legal/publish.js`. Last updated: 2026-11-03 */
 
-const CONTACT_EMAIL = "support@manifestly.ai";
+const CONTACT_EMAIL = "themanifestofficail@gmail.com";
 const APP_NAME = "Manifestly AI";
 
 const privacyPolicy = {

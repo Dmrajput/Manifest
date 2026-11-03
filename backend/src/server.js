@@ -7,6 +7,18 @@ const PORT = process.env.PORT || 5000;
 
 async function start() {
   try {
+    if (process.env.NODE_ENV === "production") {
+      const missing = ["MONGODB_URI", "SUPABASE_URL"].filter((key) => !process.env[key]?.trim());
+      if (missing.length) {
+        console.error(`Missing required production env: ${missing.join(", ")}`);
+        process.exit(1);
+      }
+      if (process.env.AI_COACH_MOCK === "1" || process.env.AI_AFFIRMATIONS_MOCK === "1") {
+        console.error("AI mock flags must not be enabled in production");
+        process.exit(1);
+      }
+    }
+
     if (process.env.MONGODB_URI) {
       await connectDatabase();
       console.log("Connected to MongoDB");

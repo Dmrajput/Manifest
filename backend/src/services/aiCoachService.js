@@ -1,6 +1,12 @@
 const { AiConversation } = require("../models");
 const { generateChat, generateText, isGeminiConfigured } = require("../config/gemini");
 const aiQuotaService = require("./aiQuotaService");
+const {
+  shouldUseLocalAiFallback,
+  createAiUnavailableError,
+  assertAiConfigured,
+  isProductionEnv,
+} = require("../utils/aiMode");
 
 const SYSTEM_PROMPT =
   "You are Manifestly AI Coach, a supportive manifestation and mindset coach. Keep advice practical, kind, and concise. Refuse harmful, illegal, or self-harm instructions. Do not claim supernatural guarantees.";
@@ -61,7 +67,7 @@ function looksUnsafe(text) {
 }
 
 function useMock() {
-  return process.env.AI_COACH_MOCK === "1" || !isGeminiConfigured();
+  return shouldUseLocalAiFallback({ mockEnvKey: "AI_COACH_MOCK", configured: isGeminiConfigured() });
 }
 
 async function sendMessage(userId, { conversationId, message }) {
@@ -80,6 +86,8 @@ async function sendMessage(userId, { conversationId, message }) {
   }
 
   await aiQuotaService.assertWithinQuota(userId, "coach");
+
+  assertAiConfigured(isGeminiConfigured());
 
   let conversation;
   if (conversationId) {
@@ -118,9 +126,15 @@ async function sendMessage(userId, { conversationId, message }) {
         temperature: 0.7,
         maxOutputTokens: 500,
       });
-      assistantText = result.text?.trim() || mockCoachReply(message.trim());
+      assistantText = result.text?.trim();
+      if (!assistantText) {
+        throw createAiUnavailableError();
+      }
       tokens = result.tokens || 0;
-    } catch {
+    } catch (error) {
+      if (isProductionEnv()) {
+        throw error.status ? error : createAiUnavailableError();
+      }
       assistantText = mockCoachReply(message.trim());
     }
   }
@@ -138,6 +152,8 @@ async function sendMessage(userId, { conversationId, message }) {
 
 async function generateGoalPlan(userId, { goalTitle, description, weeks = 4 }) {
   await aiQuotaService.assertWithinQuota(userId, "goal_plan");
+
+  assertAiConfigured(isGeminiConfigured());
 
   const safeWeeks = Math.min(Math.max(Number(weeks) || 4, 1), 8);
   let tasks = [];
@@ -163,7 +179,10 @@ async function generateGoalPlan(userId, { goalTitle, description, weeks = 4 }) {
       if (tasks.length === 0) {
         tasks = [{ title: `Define first milestone for ${goalTitle}`, weight: 1 }];
       }
-    } catch {
+    } catch (error) {
+      if (isProductionEnv()) {
+        throw error.status ? error : createAiUnavailableError();
+      }
       tasks = [{ title: `Define first milestone for ${goalTitle}`, weight: 1 }];
     }
   }

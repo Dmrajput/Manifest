@@ -136,7 +136,8 @@ describe("Vision upload — upload-url API (R2)", () => {
   });
 });
 
-describe("Vision upload — live R2 PUT integration", () => {
+const runLiveIntegration = process.env.RUN_VISION_UPLOAD_INTEGRATION === "1";
+(runLiveIntegration ? describe : describe.skip)("Vision upload — live R2 PUT integration", () => {
   before(async () => {
     require("dotenv").config();
     if (process.env.RUN_VISION_UPLOAD_INTEGRATION !== "1") {

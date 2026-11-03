@@ -1,5 +1,11 @@
 const { generateText, isGeminiConfigured } = require("../config/gemini");
 const { categoryLabel, normalizeCategory } = require("../constants/affirmationCategories");
+const {
+  shouldUseLocalAiFallback,
+  createAiUnavailableError,
+  assertAiConfigured,
+  isProductionEnv,
+} = require("../utils/aiMode");
 
 const CATEGORY_PROMPTS = {
   body: "physical body, fitness, posture, energy, and self-image",
@@ -37,7 +43,7 @@ function buildFallbackAffirmations({ category, tone, count, goal }) {
 }
 
 function useMock() {
-  return process.env.AI_AFFIRMATIONS_MOCK === "1" || !isGeminiConfigured();
+  return shouldUseLocalAiFallback({ mockEnvKey: "AI_AFFIRMATIONS_MOCK", configured: isGeminiConfigured() });
 }
 
 async function generateAffirmations({
@@ -51,6 +57,8 @@ async function generateAffirmations({
   const normalizedCategory = normalizeCategory(category) || "confidence";
   const label = categoryLabel(normalizedCategory);
   const topic = CATEGORY_PROMPTS[normalizedCategory] || label;
+
+  assertAiConfigured(isGeminiConfigured());
 
   if (useMock()) {
     return {
@@ -94,6 +102,9 @@ async function generateAffirmations({
       json: true,
     });
   } catch (error) {
+    if (isProductionEnv()) {
+      throw error.status ? error : createAiUnavailableError();
+    }
     return {
       affirmations: buildFallbackAffirmations({
         category: normalizedCategory,
@@ -124,6 +135,9 @@ async function generateAffirmations({
     : [];
 
   if (affirmations.length === 0) {
+    if (isProductionEnv()) {
+      throw createAiUnavailableError();
+    }
     return {
       affirmations: buildFallbackAffirmations({
         category: normalizedCategory,

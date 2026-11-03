@@ -6,8 +6,10 @@ const request = require("supertest");
 const { MongoMemoryServer } = require("mongodb-memory-server");
 const { connectDatabase, disconnectDatabase, mongoose } = require("../src/config/database");
 const razorpayService = require("../src/services/razorpayService");
+const { signWebCheckoutToken } = require("../src/services/razorpayWebCheckout");
 
 process.env.SUPABASE_JWT_SECRET = "test-supabase-jwt-secret";
+process.env.API_PUBLIC_URL = "https://manifestly-api.onrender.com";
 process.env.NODE_ENV = "test";
 process.env.RATE_LIMIT_MAX = "1000";
 
@@ -87,5 +89,21 @@ describe("Razorpay subscriptions", () => {
     const paymentId = "pay_2";
     const signature = crypto.createHmac("sha256", "unit_test_secret").update(`${orderId}|${paymentId}`).digest("hex");
     assert.equal(razorpayService.verifyCheckoutSignature({ orderId, paymentId, signature }), true);
+  });
+
+  it("serves hosted checkout HTML for valid token", async () => {
+    const token = signWebCheckoutToken({
+      plan: "monthly",
+      order_id: "order_test123",
+      amount: 100,
+      key_id: "rzp_test_key",
+      description: "Test plan",
+      product_id: "premium_monthly",
+      prefill: { email: "a@test.com" },
+    });
+    const res = await request(app).get(`/api/v1/subscriptions/razorpay/checkout?token=${encodeURIComponent(token)}`);
+    assert.equal(res.status, 200);
+    assert.match(res.text, /checkout\.razorpay\.com/);
+    assert.match(res.text, /order_test123/);
   });
 });

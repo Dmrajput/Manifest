@@ -4,6 +4,12 @@ const userService = require("../services/userService");
 const { Subscription } = require("../models");
 const aiQuotaService = require("../services/aiQuotaService");
 const razorpayService = require("../services/razorpayService");
+const {
+  signWebCheckoutToken,
+  verifyWebCheckoutToken,
+  buildWebCheckoutUrl,
+  renderCheckoutHtml,
+} = require("../services/razorpayWebCheckout");
 
 const verifySchema = z.object({
   product_id: z.string().trim().min(1),
@@ -69,9 +75,24 @@ async function createRazorpayOrder(req, res, next) {
     const user = await userService.getOrCreateFromAuth(req.auth);
     const productId = productIdFromPlan(parsed.data.plan);
     const checkout = await razorpayService.createPremiumOrder(user, productId);
+    const token = signWebCheckoutToken({
+      plan: parsed.data.plan,
+      order_id: checkout.order_id,
+      amount: checkout.amount,
+      key_id: checkout.key_id,
+      description: checkout.description,
+      product_id: checkout.product_id,
+      prefill: checkout.prefill,
+    });
+    const web_checkout_url = buildWebCheckoutUrl(req, token);
 
     return success(res, {
-      data: { checkout },
+      data: {
+        checkout: {
+          ...checkout,
+          web_checkout_url,
+        },
+      },
       message: "Razorpay order created",
     });
   } catch (error) {
@@ -119,9 +140,6 @@ async function verifyRazorpayPayment(req, res, next) {
   }
 }
 
-/**
- * Sandbox/dev entitlement upsert. Disabled in production unless ALLOW_SANDBOX_ENTITLEMENTS=1.
- */
 async function upsertSandboxEntitlement(req, res, next) {
   try {
     if (process.env.NODE_ENV === "production" && process.env.ALLOW_SANDBOX_ENTITLEMENTS !== "1") {
@@ -174,9 +192,28 @@ async function upsertSandboxEntitlement(req, res, next) {
   }
 }
 
+async function renderRazorpayCheckoutPage(req, res, next) {
+  try {
+    const token = String(req.query.token || "").trim();
+    if (!token) {
+      return fail(res, {
+        code: "VALIDATION_ERROR",
+        message: "Missing checkout token",
+        status: 400,
+      });
+    }
+
+    const session = verifyWebCheckoutToken(token);
+    res.type("html").send(renderCheckoutHtml(session));
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getEntitlement,
   createRazorpayOrder,
   verifyRazorpayPayment,
   upsertSandboxEntitlement,
+  renderRazorpayCheckoutPage,
 };

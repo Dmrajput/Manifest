@@ -48,3 +48,5 @@ services:
         sync: false
       - key: PREMIUM_YEARLY_INR
         sync: false
+      - key: API_PUBLIC_URL
+        value: https://manifestly-api.onrender.com

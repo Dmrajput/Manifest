@@ -1,7 +1,7 @@
 const { success, fail } = require("../utils/response");
 const userService = require("../services/userService");
 const affirmationService = require("../services/affirmationService");
-const { favoriteSchema } = require("../validators/affirmations");
+const { favoriteSchema, favoriteNotificationSchema } = require("../validators/affirmations");
 
 async function listAffirmations(req, res, next) {
   try {
@@ -62,4 +62,32 @@ async function saveFavorite(req, res, next) {
   }
 }
 
-module.exports = { listAffirmations, listCategories, saveFavorite };
+async function saveFavoriteNotification(req, res, next) {
+  try {
+    const parsed = favoriteNotificationSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return fail(res, {
+        code: "VALIDATION_ERROR",
+        message: "Invalid request data",
+        status: 400,
+        details: parsed.error.flatten(),
+      });
+    }
+
+    const user = await userService.getOrCreateFromAuth(req.auth);
+    const affirmation = await affirmationService.updateFavoriteNotification(user._id, parsed.data.affirmation_id, {
+      enabled: parsed.data.enabled,
+      hour: parsed.data.hour,
+      minute: parsed.data.minute,
+    });
+
+    return success(res, {
+      data: { affirmation },
+      message: parsed.data.enabled ? "Affirmation reminder saved" : "Affirmation reminder turned off",
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = { listAffirmations, listCategories, saveFavorite, saveFavoriteNotification };

@@ -91,6 +91,26 @@ describe("Week 3 dashboard & affirmations API", () => {
     assert.equal(favorites.status, 200);
     assert.equal(favorites.body.data.affirmations.length, 1);
     assert.equal(favorites.body.data.affirmations[0].id, id);
+
+    const notify = await request(app)
+      .put("/api/v1/affirmations/favorites/notification")
+      .set("Authorization", authHeader())
+      .send({ affirmation_id: id, enabled: true, hour: 22, minute: 0 });
+    assert.equal(notify.status, 200);
+    assert.equal(notify.body.data.affirmation.notification.enabled, true);
+    assert.equal(notify.body.data.affirmation.notification.hour, 22);
+
+    const favoritesAfter = await request(app)
+      .get("/api/v1/affirmations?favoritesOnly=true")
+      .set("Authorization", authHeader());
+    assert.equal(favoritesAfter.body.data.affirmations[0].notification.hour, 22);
+
+    const off = await request(app)
+      .put("/api/v1/affirmations/favorites/notification")
+      .set("Authorization", authHeader())
+      .send({ affirmation_id: id, enabled: false });
+    assert.equal(off.status, 200);
+    assert.equal(off.body.data.affirmation.notification.enabled, false);
   });
 
   it("POST /ai/affirmations generates and enforces quota", async () => {

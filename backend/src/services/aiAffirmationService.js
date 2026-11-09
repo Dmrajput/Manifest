@@ -22,10 +22,18 @@ const CATEGORY_PROMPTS = {
   wellness: "balance, calm, and holistic wellbeing",
 };
 
+function describeCategoryTopic(normalizedCategory, goal) {
+  if (CATEGORY_PROMPTS[normalizedCategory]) {
+    return CATEGORY_PROMPTS[normalizedCategory];
+  }
+  const label = goal?.trim() || categoryLabel(normalizedCategory);
+  return `the custom theme "${label}" — every affirmation must clearly relate to ${label}, not generic self-help`;
+}
+
 function buildFallbackAffirmations({ category, tone, count, goal }) {
   const id = normalizeCategory(category) || "confidence";
-  const focus = goal || categoryLabel(id);
-  const topic = CATEGORY_PROMPTS[id] || focus;
+  const focus = goal?.trim() || categoryLabel(id);
+  const topic = describeCategoryTopic(id, goal);
   const vibe = tone || "encouraging";
   const lines = [
     `I am ${vibe} as I grow in ${focus}.`,
@@ -56,7 +64,8 @@ async function generateAffirmations({
   const safeCount = Math.min(Math.max(Number(count) || 5, 3), 10);
   const normalizedCategory = normalizeCategory(category) || "confidence";
   const label = categoryLabel(normalizedCategory);
-  const topic = CATEGORY_PROMPTS[normalizedCategory] || label;
+  const topic = describeCategoryTopic(normalizedCategory, goal);
+  const isCustomCategory = !CATEGORY_PROMPTS[normalizedCategory];
 
   assertAiConfigured(isGeminiConfigured());
 
@@ -83,7 +92,10 @@ async function generateAffirmations({
     `Tone: ${tone}.`,
     `Primary focus category id: ${normalizedCategory} (${label}).`,
     `Write specifically about: ${topic}.`,
-    goal ? `Related goal: ${goal}.` : "",
+    isCustomCategory
+      ? `This is a custom user-chosen type. Do not write about other life areas unless they directly support ${label}.`
+      : "",
+    goal ? `User wording for this focus: ${goal}.` : "",
     "Encourage realistic action and self-reflection. Do not promise guaranteed outcomes.",
     `Every affirmation object must use category "${normalizedCategory}".`,
     'Return JSON only: {"affirmations":[{"text":"...","category":"..."}]}',
